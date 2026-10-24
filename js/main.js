@@ -26,7 +26,7 @@
 
   function volcarConfig() {
     $$('[data-wa]').forEach((el) => {
-      el.href = linkWhatsApp(el.dataset.wa || 'Hola! Quiero hacer un pedido 🤍');
+      el.href = linkWhatsApp(el.dataset.wa || 'Hola! Quiero hacer un pedido.');
       el.target = '_blank';
       el.rel = 'noopener';
     });
@@ -125,7 +125,7 @@
 
     const cta = document.createElement('a');
     cta.className = 'card-cta';
-    cta.href = linkWhatsApp('Hola! Quiero pedir ' + producto.nombre + ' 🤍');
+    cta.href = linkWhatsApp('Hola! Quiero pedir ' + producto.nombre + '.');
     cta.target = '_blank';
     cta.rel = 'noopener';
     cta.innerHTML =
@@ -164,7 +164,7 @@
       cta.href = linkWhatsApp(
         'Hola! Quiero pedir ' + producto.nombre +
         ' (' + variante.nombre + ') — ' + dinero(valor) +
-        ', ' + producto.presentacion.toLowerCase() + '. ¿Tienen disponibilidad? 🤍'
+        ', ' + producto.presentacion.toLowerCase() + '. ¿Tienen disponibilidad?'
       );
     });
 
