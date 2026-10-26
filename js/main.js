@@ -13,8 +13,28 @@
   const dinero = (valor) =>
     '$' + Math.round(valor).toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
-  const precioConHarina = (precio, variante) =>
-    Math.round((precio * (1 + (CONFIG.recargos[variante] || 0))) / 50) * 50;
+  const opcionesDe = (producto) => {
+    if (Array.isArray(producto.opciones) && producto.opciones.length) {
+      return producto.opciones;
+    }
+    return [{
+      id: 'unica',
+      etiqueta: null,
+      presentacion: producto.presentacion,
+      precios: producto.precios || {}
+    }];
+  };
+
+  const tieneVariante = (precios, varianteId) =>
+    Object.prototype.hasOwnProperty.call(precios || {}, varianteId);
+
+  const precioDe = (precios, varianteId) => {
+    const valor = (precios || {})[varianteId];
+    return typeof valor === 'number' ? valor : null;
+  };
+
+  const variantesDe = (precios) =>
+    VARIANTES.filter((v) => tieneVariante(precios, v.id));
 
   const linkWhatsApp = (mensaje) =>
     'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(mensaje);
@@ -70,13 +90,35 @@
     return boton;
   }
 
+  function mensajePedido(producto, opcion, variante, precio) {
+    let detalle = producto.nombre + ' · ' + opcion.presentacion;
+    if (variante) detalle += ' · ' + variante.nombre;
+
+    if (precio === null) {
+      return 'Hola! Quiero consultar por ' + detalle + '. ¿Me pasan disponibilidad y precio?';
+    }
+    return 'Hola! Quiero pedir ' + detalle + ' — ' + dinero(precio) + '. ¿Tienen disponibilidad?';
+  }
+
+  function pintaPrecio(elemento, valor) {
+    elemento.textContent = valor === null ? 'Consultar' : dinero(valor);
+    elemento.classList.toggle('is-consultar', valor === null);
+  }
+
   function crearTarjeta(producto, indice) {
+    const opciones = opcionesDe(producto);
+    let opcionActiva = opciones[0];
+    let varianteActiva = variantesDe(opcionActiva.precios)[0] || null;
+    let precioActivo = varianteActiva ? precioDe(opcionActiva.precios, varianteActiva.id) : null;
+
     const articulo = document.createElement('article');
     articulo.className = 'card reveal';
     articulo.style.transitionDelay = (indice % 3) * 80 + 'ms';
-    articulo.dataset.precio = producto.precio;
+    articulo.dataset.producto = producto.id;
     articulo.dataset.nombre = producto.nombre;
-    articulo.dataset.presentacion = producto.presentacion;
+    articulo.dataset.opcion = opcionActiva.id;
+    articulo.dataset.presentacion = opcionActiva.presentacion;
+    articulo.dataset.variante = varianteActiva ? varianteActiva.id : '';
 
     const figura = document.createElement('figure');
     figura.className = 'card-media';
@@ -95,6 +137,30 @@
     titulo.className = 'card-nombre';
     titulo.textContent = producto.nombre;
 
+    const encabezado = document.createElement('div');
+    encabezado.className = 'card-head';
+    encabezado.appendChild(titulo);
+
+    let botonesTamanio = null;
+    if (opciones.length > 1) {
+      botonesTamanio = document.createElement('div');
+      botonesTamanio.className = 'card-tamanios';
+      botonesTamanio.setAttribute('role', 'group');
+      botonesTamanio.setAttribute('aria-label', 'Cantidad para ' + producto.nombre);
+
+      opciones.forEach((opcion) => {
+        const boton = document.createElement('button');
+        boton.type = 'button';
+        boton.className = 'tamanio';
+        boton.dataset.opcion = opcion.id;
+        boton.setAttribute('aria-pressed', opcion === opcionActiva ? 'true' : 'false');
+        boton.textContent = opcion.etiqueta || opcion.presentacion;
+        botonesTamanio.appendChild(boton);
+      });
+
+      encabezado.appendChild(botonesTamanio);
+    }
+
     const desc = document.createElement('p');
     desc.className = 'card-desc';
     desc.textContent = producto.descripcion;
@@ -102,22 +168,19 @@
     const fila = document.createElement('div');
     fila.className = 'card-precio-fila';
 
-    const precio = document.createElement('span');
-    precio.className = 'card-precio';
-    precio.setAttribute('aria-live', 'polite');
-    precio.textContent = dinero(precioConHarina(producto.precio, 'comun'));
+    const precioEl = document.createElement('span');
+    precioEl.className = 'card-precio';
+    precioEl.setAttribute('aria-live', 'polite');
 
     const pres = document.createElement('span');
     pres.className = 'card-presentacion';
-    pres.textContent = producto.presentacion;
 
-    fila.append(precio, pres);
+    fila.append(precioEl, pres);
 
     const chips = document.createElement('div');
     chips.className = 'chips';
     chips.setAttribute('role', 'group');
     chips.setAttribute('aria-label', 'Tipo de harina para ' + producto.nombre);
-    VARIANTES.forEach((v, i) => chips.appendChild(crearChip(v, i === 0)));
 
     const nota = document.createElement('p');
     nota.className = 'card-nota';
@@ -125,7 +188,6 @@
 
     const cta = document.createElement('a');
     cta.className = 'card-cta';
-    cta.href = linkWhatsApp('Hola! Quiero pedir ' + producto.nombre + '.');
     cta.target = '_blank';
     cta.rel = 'noopener';
     cta.innerHTML =
@@ -134,38 +196,84 @@
       '<path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" ' +
       'stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-    cuerpo.append(titulo, desc, fila, chips, nota, cta);
+    cuerpo.append(encabezado, desc, fila, chips, nota, cta);
     articulo.append(figura, cuerpo);
 
-    /* interacción de variantes */
+    /* ---------- estado de la tarjeta ---------- */
+
+    function pintarChips() {
+      const variantes = variantesDe(opcionActiva.precios);
+      chips.innerHTML = '';
+      chips.hidden = variantes.length === 0;
+
+      if (variantes.length > 1) {
+        variantes.forEach((v) => chips.appendChild(crearChip(v, v.id === varianteActiva.id)));
+      }
+    }
+
+    function actualizar(animar) {
+      const variantes = variantesDe(opcionActiva.precios);
+      if (!varianteActiva || !variantes.some((v) => v.id === varianteActiva.id)) {
+        varianteActiva = variantes[0] || null;
+      }
+      precioActivo = varianteActiva ? precioDe(opcionActiva.precios, varianteActiva.id) : null;
+
+      const foto = opcionActiva.foto || producto.foto;
+      if (img.getAttribute('src') !== foto) {
+        img.src = foto;
+        img.alt = opcionActiva.alt || producto.alt;
+      }
+
+      pres.textContent = opcionActiva.presentacion;
+      pintaPrecio(precioEl, precioActivo);
+      pintarChips();
+
+      nota.textContent = varianteActiva ? (varianteActiva.nota || '') : '';
+      nota.hidden = !nota.textContent;
+
+      cta.href = linkWhatsApp(mensajePedido(producto, opcionActiva, varianteActiva, precioActivo));
+
+      articulo.dataset.opcion = opcionActiva.id;
+      articulo.dataset.variante = varianteActiva ? varianteActiva.id : '';
+      articulo.dataset.presentacion = opcionActiva.presentacion;
+
+      if (animar) {
+        precioEl.classList.remove('precio-pulso');
+        void precioEl.offsetWidth;
+        precioEl.classList.add('precio-pulso');
+      }
+    }
+
+    actualizar(false);
+
+    /* cambio de cantidad (x12 / x6) */
+    if (botonesTamanio) {
+      botonesTamanio.addEventListener('click', (evento) => {
+        const boton = evento.target.closest('.tamanio');
+        if (!boton) return;
+
+        const opcion = opciones.find((o) => o.id === boton.dataset.opcion);
+        if (!opcion || opcion === opcionActiva) return;
+
+        opcionActiva = opcion;
+        $$('.tamanio', botonesTamanio).forEach((b) =>
+          b.setAttribute('aria-pressed', b === boton ? 'true' : 'false')
+        );
+        actualizar(true);
+      });
+    }
+
+    /* cambio de harina */
     articulo.addEventListener('click', (evento) => {
       const chip = evento.target.closest('.chip');
       if (!chip) return;
 
-      const valor = precioConHarina(producto.precio, chip.dataset.variante);
-      const variante = VARIANTES.find((v) => v.id === chip.dataset.variante);
+      const variante = variantesDe(opcionActiva.precios)
+        .find((v) => v.id === chip.dataset.variante);
+      if (!variante) return;
 
-      $$('.chip', chips).forEach((c) =>
-        c.setAttribute('aria-pressed', c === chip ? 'true' : 'false')
-      );
-
-      precio.textContent = dinero(valor);
-      precio.classList.remove('precio-pulso');
-      void precio.offsetWidth;
-      precio.classList.add('precio-pulso');
-
-      if (variante.nota) {
-        nota.textContent = variante.nota;
-        nota.hidden = false;
-      } else {
-        nota.hidden = true;
-      }
-
-      cta.href = linkWhatsApp(
-        'Hola! Quiero pedir ' + producto.nombre +
-        ' (' + variante.nombre + ') — ' + dinero(valor) +
-        ', ' + producto.presentacion.toLowerCase() + '. ¿Tienen disponibilidad?'
-      );
+      varianteActiva = variante;
+      actualizar(true);
     });
 
     return articulo;

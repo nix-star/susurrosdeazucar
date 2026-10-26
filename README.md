@@ -30,7 +30,7 @@ susurros-de-azucar/
 │   ├── fuentes.css       Tipografías embebidas (base64)
 │   └── styles.css        Todos los estilos, colores y responsive
 ├── js/
-│   ├── productos.js      ⚙️ Datos: precios, productos, WhatsApp, recargos
+│   ├── productos.js      ⚙️ Datos: precios, productos, WhatsApp
 │   └── main.js           Render de tarjetas, precios y menú
 └── assets/
     ├── logo/             Logo original, versiones web, favicon y OG
@@ -51,25 +51,61 @@ const PRODUCTOS = [
     id: 'budines',
     categoria: 'dulces',           // 'dulces' o 'salados'
     nombre: 'Budines',
-    descripcion: 'De limón, vainilla o chocolate...',
-    presentacion: 'Molde grande',
-    precio: 8500,                  // precio con harina común
+    descripcion: 'De vainilla, manzana, marmolado...',
+    presentacion: 'Molde chico',
+    precios: { comun: 5000, integral: 7000, sinTacc: 7000 },
     foto: 'assets/productos/budines.webp',
-    alt: 'Budín de chocolate con baño de ganache'
+    alt: 'Budines artesanales sobre un plato celeste'
   },
   // ...
 ];
 ```
 
-Los precios de **integral** y **sin TACC** se calculan solos con los recargos de `CONFIG`:
+Cada producto define **el precio de cada variante de harina** en `precios`:
+
+| Valor | Qué significa |
+|---|---|
+| un número (`7000`) | variante disponible a ese precio |
+| `null` | variante disponible, precio **a consultar** |
+| ausente | variante **no disponible** (no se muestra el botón) |
+
+Ejemplos:
 
 ```js
-recargos: { comun: 0, integral: 0.10, sinTacc: 0.20 }
+precios: { comun: 5000, integral: 7000, sinTacc: 7000 }  // las tres opciones
+precios: { comun: 10000 }                                 // solo común (sin botones)
+precios: { comun: 10000, integral: 12000, sinTacc: null } // sin TACC a consultar
 ```
 
-Ese `0.20` es +20 %. Para que integral y sin TACC salgan al mismo precio, igualá los valores.
+Si un producto tiene una sola variante, los botones de harina no se muestran.
+El botón de WhatsApp arma el mensaje con producto, presentación, harina y precio
+(o pide consultar cuando el precio es `null`). No hay carrito.
 
-> El resultado se redondea a múltiplos de 50 para que los precios queden lindos ($10.200, $8.500, etc.).
+> Para agregar un producto, copiá un bloque, cambiá el `id` (único) y la `categoria`.
+
+### Productos con varias cantidades (pepas x12 / x6)
+
+Cuando el mismo producto se vende en distintas presentaciones, se usa `opciones`
+en lugar de `precios`. La primera opción queda seleccionada por defecto y el
+selector aparece al lado del nombre:
+
+```js
+{
+  id: 'pepas',
+  nombre: 'Pepas',
+  descripcion: 'Masa mantecosa y corazón de dulce de membrillo. Las de siempre.',
+  foto: 'assets/productos/pepas.webp',
+  opciones: [
+    { id: 'docena', etiqueta: 'x12', presentacion: 'Docena',
+      precios: { comun: 6000, integral: 7500, sinTacc: 7500 } },
+    { id: 'media',  etiqueta: 'x6',  presentacion: 'Media docena',
+      precios: { comun: 3500, integral: 4000, sinTacc: 4000 } }
+  ]
+}
+```
+
+Al cambiar de cantidad se actualizan precio, presentación y link de WhatsApp.
+La harina elegida se conserva si la nueva opción también la ofrece.
 
 ### Cambiar el contacto
 
@@ -94,18 +130,24 @@ Reemplazá el archivo manteniendo **el mismo nombre** y no hay que tocar código
 | Archivo | Producto |
 |---|---|
 | `assets/productos/budines.webp` | Budines |
-| `assets/productos/pepas.webp` | Pepas |
+| `assets/productos/pepas.webp` | Pepas (x12 y x6) |
 | `assets/productos/alfajores.webp` | Alfajores de maicena |
-| `assets/productos/bizcochos.webp` | Bizcochos |
+| `assets/productos/bizcochitos.webp` | Bizcochitos de grasa |
 | `assets/productos/pasta-frola.webp` | Pasta frola |
 | `assets/productos/tartas.webp` | Tartas saladas |
 
 **Recomendación:** 900 × 1125 px (proporción 4:5), formato `.webp` o `.jpg`, menos de 200 KB.
 Si usás `.jpg`, cambiá también la extensión en `js/productos.js`.
+Las fotos se recortan solas al centro del contenedor (`object-fit: cover`).
 
 Fotos de fondo: `assets/fondo/hero.webp`, `harinas.webp`, `nosotros.webp`, `contacto.webp`.
 
-> ⚠️ Las fotos actuales de productos y fondos son **de ejemplo (Unsplash)** y están para reemplazar.
+> Las fotos de budines, pepas, bizcochitos y tartas son las que envió la marca
+> (recortadas a 4:5 para sacar los textos promocionales).
+> **Alfajores sigue con foto de ejemplo (Unsplash)**.
+> La pasta frola usa una foto real de **Raulete_CM** (Flickr, CC BY-SA 2.0),
+> recortada a 4:5; el crédito está en el footer. Reemplazala por una propia
+> cuando la tengas y borrá esa línea del footer.
 
 ---
 
@@ -131,8 +173,11 @@ Cuando tengas dominio propio (ej. `susurrosdeazucar.com.ar`), se conecta desde e
 
 ## Pendientes para la versión final
 
-- [ ] Precios reales y presentaciones (por docena, por kilo, molde chico/grande).
-- [ ] Fotos propias de cada producto.
+- [x] Precios reales y presentaciones.
+- [x] Fotos propias de budines, pepas, bizcochitos y tartas.
+- [x] Precio de pasta frola ($12.000, solo común).
+- [ ] Fotos propias de alfajores y pasta frola (hoy son de ejemplo).
+- [ ] Precio de la tarta sin TACC (figura como “Consultar”).
 - [ ] Logo en alta resolución (SVG o PNG 2000 px).
 - [ ] Zona de envío y costo.
 - [ ] Confirmar si los alfajores de maicena son sin TACC de por sí.
