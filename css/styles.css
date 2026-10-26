@@ -922,6 +922,32 @@ section { scroll-margin-top: 96px; }
 .footer-credito a:hover { color: var(--rosa-osc); }
 
 /* ============================================================
+   Créditos de desarrollo
+   ============================================================ */
+
+.dev-footer {
+  background: #fff;
+  border-top: 1px solid var(--linea);
+  padding: 16px;
+  text-align: center;
+}
+
+.dev-footer p {
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: var(--texto-suave);
+}
+
+.dev-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transicion);
+}
+
+.dev-footer a:hover { color: var(--rosa-osc); }
+
+/* ============================================================
    Botón flotante
    ============================================================ */
 
